@@ -1,11 +1,6 @@
----
-title: "Macroeconomic Forecasting - Forecasting the US Savings Rate"
-author: "Anders Christiansen"
-date: "December 13, 2015"
-output:  
-      html_document:  
-        keep_md: true
----
+# Macroeconomic Forecasting - Forecasting the US Savings Rate
+Anders Christiansen  
+December 13, 2015  
 
 This R code is based on the Final Assignment for the IMF course "Macroeconomic Forecasting" (https://courses.edx.org/courses/course-v1:IMFx+MFx+2015T3/info). The course is conducted in E-Views and this script aims to replicate the results in R. Many of the results have slight discrepencies or are given using a different type of test. 
 
@@ -18,13 +13,15 @@ I hope this helps you begin to apply what you learned in E-Views in R!
 # Set-Up
 
 First let us load the packages and data we will be working with:
-```{r, message=FALSE, warning=FALSE}
+
+```r
 require(vars)
 require(tsDyn)
 data = read.csv("http://www.aachristiansen.com/usa_cy.csv")
 ```
 Convert data frame into time series vectors
-```{r, message=FALSE, warning=FALSE}
+
+```r
 for(i in 1:dim(data)[2])
   assign(names(data)[i],window(ts(data[,i], 
                                   frequency = 4, 
@@ -32,10 +29,10 @@ for(i in 1:dim(data)[2])
                                   end=c(2015, 4)),
          start = c(1961,1),
          end = c(2007,4)))
-
 ```
 Create time series for the Test data (2008-2014)
-```{r, message=FALSE, warning=FALSE}
+
+```r
 for(i in 1:dim(data)[2])
   assign(paste0(names(data)[i],"Test"),window(ts(data[,i], 
                                   frequency = 4, 
@@ -46,7 +43,8 @@ for(i in 1:dim(data)[2])
 Calculate the Savings Rate 
 (Income minus Consumption minus Government Transfers minus Interest Payments as a
 percentage of Income)
-```{r, message=FALSE, warning=FALSE}
+
+```r
 saving_rate = ts(
   100*(rdy - (rc + ((gov_transfers + interest_payments/y_deflator))))/rdy, 
                frequency = 4, start = c(1961,1))
@@ -54,14 +52,14 @@ saving_rate_test = ts(
   100*(rdyTest - (rcTest + 
                ((gov_transfersTest + interest_paymentsTest/y_deflatorTest))))/rdyTest,
                      frequency = 4, start = c(2008,1))
-
 ```
 
 # Question 8.1
 
 Plot the log of Real Consumption (rc) divided by Real Disposable Income (rdy) next to the log of Real Net Worth (rnw) divided by Real Disposable Income (rdy). (Watch out how you interpret the graph! The axes are different than in E-Views)
 
-```{r}
+
+```r
 par(mar=c(5,4,4,5)+.1)
 plot.ts(log(rc/rdy), 
         type="l", 
@@ -75,22 +73,28 @@ axis(4)
 mtext("log(rnw/rdy)",side=4,line=3)
 ```
 
+![](Forecasting_the_US_Savings_Rate_files/figure-html/unnamed-chunk-5-1.png) 
+
 # Question 8.2
 
 Plot the residuals of a simple regression of the log of Real Consumption on the log of Real Net Worth to see how they change over time.
 
-```{r}
+
+```r
 fit = lm(log(rc/rdy) ~ log(rnw/rdy))
 residuals = ts(fit$residuals,frequency = 4, start = c(1961,1))
 plot.ts(residuals)
 abline(h=0)
 ```
 
+![](Forecasting_the_US_Savings_Rate_files/figure-html/unnamed-chunk-6-1.png) 
+
 # Question 8.3
 
 Set up a dummy variable to represent the structural break.
 
-```{r}
+
+```r
 n = length(dateid01)
 zeros = (1975-1961)*4 + 3
 sb_1975_4 = ts(c(rep(0,zeros), rep(1, n-zeros)),frequency = 4, start = c(1961,1))
@@ -105,7 +109,8 @@ selectlags = c("Fixed", "AIC", "BIC")
 (Results vary slightly from EViews and output has been shortened)
 
 
-```{r, results = "hide"}
+
+```r
 summary(ur.df(y = log(rc), type = "drift", lags = 2))
 
 ## Coefficients:
@@ -150,7 +155,6 @@ summary(ur.df(y = log(rnw), type = "drift", lags = 4))
 ## Residual standard error: 0.01583 on 177 degrees of freedom
 ## Multiple R-squared:  0.1264, Adjusted R-squared:  0.1018 
 ## F-statistic: 5.124 on 5 and 177 DF,  p-value: 0.0002053
-
 ```
 
 # QUESTION 8.6
@@ -160,86 +164,105 @@ Select the correct number of lags for the Vector Auto-Regressive model given a v
 (Results vary slightly from EViews)
 
 
-```{r}
+
+```r
 VARselect(cbind(log(rc),log(rdy),log(rnw)),
           type="const", 
           exogen = data.frame(sb_1975_4 = sb_1975_4))$selection
+```
+
+```
+## AIC(n)  HQ(n)  SC(n) FPE(n) 
+##      5      2      1      5
 ```
 
 # QUESTION 8.7 - 8.9
 
 Set up the VAR model and run a series of tests for autocorrelation, heteroskedasticity, and normality. (The tests in the VAR package are different from E-Views)
 
-```{r}
+
+```r
 SimpleVar = VAR(cbind(log(rc),log(rdy),log(rnw)),
              p = 2,
              type="const", 
              exogen = data.frame(sb_1975_4 = sb_1975_4))
 
 serial.test(SimpleVar)
+```
+
+```
+## 
+## 	Portmanteau Test (asymptotic)
+## 
+## data:  Residuals of VAR object SimpleVar
+## Chi-squared = 155.14, df = 126, p-value = 0.0399
+```
+
+```r
 arch.test(SimpleVar,4)
+```
+
+```
+## 
+## 	ARCH (multivariate)
+## 
+## data:  Residuals of VAR object SimpleVar
+## Chi-squared = 241.5, df = 180, p-value = 0.001509
+```
+
+```r
 normality.test(SimpleVar)
+```
+
+```
+## $JB
+## 
+## 	JB-Test (multivariate)
+## 
+## data:  Residuals of VAR object SimpleVar
+## Chi-squared = 100.98, df = 6, p-value < 2.2e-16
+## 
+## 
+## $Skewness
+## 
+## 	Skewness only (multivariate)
+## 
+## data:  Residuals of VAR object SimpleVar
+## Chi-squared = 25.047, df = 3, p-value = 1.51e-05
+## 
+## 
+## $Kurtosis
+## 
+## 	Kurtosis only (multivariate)
+## 
+## data:  Residuals of VAR object SimpleVar
+## Chi-squared = 75.935, df = 3, p-value = 2.22e-16
 ```
 
 Forecasting variables with VAR model and 95% confidence intervals.
 
-```{r}
+
+```r
 VARForecast = predict(SimpleVar,n.ahead = 27,dumvar=data.frame(sb_1975_4 = rep(1,27)), ci = .95)
 ```
 
-```{r, echo = FALSE}
-par(mfrow = c(2,2))
-for(i in 1:3) {
-  variables = c("rc","rdy","rnw")
-  Predicted = ts(c(window(get(variables[i]),start=c(2004,1)),exp(VARForecast$fcst[[paste0("log.",variables[i],".")]][,1])), 
-                   frequency = 4, start=c(2004,1))
-  PredLo = ts(c(window(get(variables[i]),start=c(2004,1)),exp(VARForecast$fcst[[paste0("log.",variables[i],".")]][,2])), 
-                frequency = 4, start=c(2004,1))
-  PredHi = ts(c(window(get(variables[i]),start=c(2004,1)),exp(VARForecast$fcst[[paste0("log.",variables[i],".")]][,3])), 
-                frequency = 4, start=c(2004,1))
-
-  Actual = window(ts(data[,variables[i]], 
-                       frequency = 4, 
-                       start = c(1945,1), 
-                       end=c(2015, 4)),
-                    start = c(2004,1),
-                    end = c(2014,3))
-          
-  plot(Actual, col="red",
-       ylim = c(min(c(Actual,PredLo)), max(c(PredHi,Actual)) ),
-       ylab = variables[i])
-  lines(PredLo, col="green")
-  lines(PredHi, col="green")
-  lines(Predicted, col="blue")
-}
-par(mfrow = c(1,1))
-
-```
+![](Forecasting_the_US_Savings_Rate_files/figure-html/unnamed-chunk-12-1.png) 
 
 Impulse Response of Real Consumption to a shock in Real Disposable Income.
 
-```{r}
+
+```r
 VARImpulse = irf(SimpleVar, impulse = "log.rdy.", n.ahead = 27, ci = .95)
-
 ```
-```{r, echo = FALSE}
-rcPredicted = exp(as.numeric(VARImpulse$irf[[1]][,1]))-1
-rcPredLo = exp(as.numeric(VARImpulse$Lower[[1]][,1]))-1
-rcPredHi = exp(as.numeric(VARImpulse$Upper[[1]][,1]))-1
-
-plot(rcPredicted, col="red", type = "l",
-     ylim=c(min(rcPredLo),max(rcPredHi)))
-lines(rcPredLo, col="green")
-lines(rcPredHi, col="green")
-abline(h=0)
-```
+![](Forecasting_the_US_Savings_Rate_files/figure-html/unnamed-chunk-14-1.png) 
 
 
 # QUESTION 8.10
 
 In order to determine the number of cointegrating vectors to use when estimating the Vector Error Correcting Model (VECM), we must run the Johansen Cointegration Test. (Result is different from EViews and results are truncated)
 
-```{r, results = "hide"}
+
+```r
 VECMTest = ca.jo(cbind(log(rc),log(rdy),log(rnw)), 
                  type="eigen", ecdet = "const", K = 2, 
                  dumvar = data.frame(sb_1975_4 = sb_1975_4))
@@ -251,14 +274,14 @@ summary(VECMTest)
 ## r <= 2 |  2.00  7.52  9.24 12.97
 ## r <= 1 | 23.58 13.75 15.67 20.20
 ## r = 0  | 51.56 19.77 22.00 26.81
-
 ```
 
 # QUESTION 8.11
 
 Test the change in Unemployment (unemp) and the log of Consumer Sentiment (consumer_sentiment) for stationarity using the Augmented Dickey-Fuller Test. (Results are truncated.)
 
-```{r, results = "hide"}
+
+```r
 summary(ur.df(y = diff(unemp), type = "drift", selectlags = "AIC"))
 
 ## Coefficients:
@@ -286,14 +309,14 @@ summary(ur.df(y = log(consumer_sentiment), type = "drift", selectlags = "AIC"))
 ## Residual standard error: 0.07098 on 183 degrees of freedom
 ## Multiple R-squared:  0.09993,    Adjusted R-squared:  0.0901 
 ## F-statistic: 10.16 on 2 and 183 DF,  p-value: 6.548e-05
-
 ```
 
 # QUESTION 8.12
 
 Using the Johansen Cointegration Test object, the urca package can construct the VECM model.
 
-```{r}
+
+```r
 difUnem = window(diff(ts(data$unemp, frequency = 4, start = c(1945,1))),
                  start = c(1961,1),
                  end = c(2007,4))
@@ -308,11 +331,37 @@ VECMurca = ca.jo(cbind(log(rc),log(rdy),log(rnw)),
 cajorls(VECMurca, 1)
 ```
 
+```
+## $rlm
+## 
+## Call:
+## lm(formula = substitute(form1), data = data.mat)
+## 
+## Coefficients:
+##               log.rc..d  log.rdy..d  log.rnw..d
+## ect1          -0.187449   0.010152   -0.126953 
+## sb_1975_4      0.001552  -0.004008    0.003795 
+## difUnem       -0.007784  -0.006280   -0.001941 
+## consConf       0.018493   0.001475    0.012629 
+## log.rc..dl1   -0.297075   0.205715    0.170085 
+## log.rdy..dl1   0.182107  -0.197673   -0.289025 
+## log.rnw..dl1   0.065724   0.059474    0.169091 
+## 
+## 
+## $beta
+##                   ect1
+## log.rc..l2   1.0000000
+## log.rdy..l2 -0.9092629
+## log.rnw..l2 -0.1099968
+## constant     1.6277940
+```
+
 # Dynamic Forecast
 
 In order to produce a dynamic forecast the VECM function of the "tsDyn" package is used.
 
-```{r}
+
+```r
 SimpleVECM = VECM(cbind(log(rc),log(rdy),log(rnw)), lag=1, r = 1, include = "const",
      estim ="ML", LRinclude = "const", 
      exogen = data.frame(sb_1975_4 = sb_1975_4))
@@ -331,7 +380,8 @@ saving_rate_forecastD = ts(
 
 For the static forecast we predict the Savings Rate only one period ahead. The for loop adds the new data for the quarter onto the existing data to predict one quarter ahead.
 
-```{r}
+
+```r
 VECMStaticForecast = VECMDynForecast
 
 rc2=rc;rdy2=rdy;rnw2=rnw;sb_1975_4_2=sb_1975_4;
@@ -356,7 +406,8 @@ saving_rate_forecastS = ts(
 
 # Comparison
 
-```{r}
+
+```r
 SavingsRate = ts(
   c(saving_rate,saving_rate_test), frequency = 4, start = c(1961,1))
 DynamicForecast = ts(
@@ -371,36 +422,94 @@ lines(DynamicForecast, col="blue")
 lines(StaticForecast, col="purple")
 ```
 
+![](Forecasting_the_US_Savings_Rate_files/figure-html/unnamed-chunk-20-1.png) 
+
 # Calculating performance vs baseline
 
-```{r}
 
+```r
 rmse <- function(error) sqrt(mean(error^2))
 
 ## Static Forecast RMSE
 rmse(saving_rate_forecastS - saving_rate_test)
+```
+
+```
+## [1] 0.3767508
+```
+
+```r
 ## Baseline using last quarters Savings Rate
 rmse(c(saving_rate[length(saving_rate)],
        saving_rate_test[1:(length(saving_rate_test)-1)]) - saving_rate_test)
+```
+
+```
+## [1] 1.187646
+```
+
+```r
 ## Dynamic Forecast RMSE
 rmse(saving_rate_forecastD - saving_rate_test)
+```
+
+```
+## [1] 2.988718
+```
+
+```r
 ## Baseline 2007 Q1
 rmse(saving_rate[length(saving_rate)] - saving_rate_test)
+```
 
+```
+## [1] 3.010411
+```
+
+```r
 ## T Statistic Static Forecast
 errorDifStatic = (saving_rate_forecastS - saving_rate_test)^2 -
      (c(saving_rate[length(saving_rate)],
         saving_rate_test[1:(length(saving_rate_test)-1)]) - saving_rate_test)^2
 
 t.test(errorDifStatic,mu=0)
+```
 
+```
+## 
+## 	One Sample t-test
+## 
+## data:  errorDifStatic
+## t = -2.3721, df = 26, p-value = 0.02537
+## alternative hypothesis: true mean is not equal to 0
+## 95 percent confidence interval:
+##  -2.367824 -0.169298
+## sample estimates:
+## mean of x 
+## -1.268561
+```
+
+```r
 ## T Statistic Dynamic Forecast
 
 errorDifDynamic = (saving_rate_forecastD - saving_rate_test)^2 -
      (saving_rate[length(saving_rate)] - saving_rate_test)^2
 
 t.test(errorDifDynamic,mu=0)
+```
 
+```
+## 
+## 	One Sample t-test
+## 
+## data:  errorDifDynamic
+## t = -0.5106, df = 26, p-value = 0.6139
+## alternative hypothesis: true mean is not equal to 0
+## 95 percent confidence interval:
+##  -0.6540505  0.3937690
+## sample estimates:
+##  mean of x 
+## -0.1301408
 ```
 
 # Conclusion
