@@ -1,0 +1,171 @@
+---
+output: 
+  html_document: 
+    highlight: textmate
+    theme: journal
+---
+
+# IMF Online Course: Macroeconomic forecasting
+## Module 3B: Statistical Properties of Time Series Data
+### Testing for Nonstationarity and Unit Roots
+
+**Author**: Miha Trošt   
+**Date**: `r format(Sys.Date(), "%d-%m-%Y")`
+
+```{r global_options, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      eval = TRUE, 
+                      comment = "", 
+                      warning = FALSE,
+                      fig.width = 6, 
+                      fig.height = 6,
+                      fig.align='center',
+                      dpi = 100,
+                      bootstrap.thumbnail = FALSE)
+
+options(width = 100)
+
+```
+
+```{r}
+
+# useful libraries
+library(plyr)
+library(dplyr)
+library(forecast)
+library(stringr)
+library(lubridate)
+library(tidyr)
+library(broom)
+
+```
+
+```{r}
+
+my_wd <- 
+  "C:/Users/Miha/Documents/GitHub/IMF_Macro_Forecasting_R/003_module_3b_Statistical_properties_of_time_series/M3B_Assessments Workfile/"
+
+my_non_st_df <- 
+  read.csv(str_c(my_wd, "module3b_data_Simulated_Nonstationary.CSV"),
+           sep = ",",
+           stringsAsFactors = FALSE)
+
+```
+
+### Identifying Non-Stationarity
+
+Given two series m~t~ and n~t~ defined by the following equations:
+
+1. **m~t~ = 1.5 + m~t-1~ + e~mt~**
+2. **n~t~ = -2 + n~t-1~ + e~nt~**
+
+where **e~mt~** and **e~nt~** are both white noise. In the `module3b_data_Simulated_Nonstationary.csv` file you are given the series `em` and `en` representing **e~mt~** and **e~nt~** respectively. Study the graphs of the series **m~t~** and **n~t~**.
+
+```{r mt_nt}
+
+# optional m
+m_t <- vector()
+m_t <- 0
+
+n_rep <- 500
+em <- my_non_st_df$em
+
+for(i in 2:n_rep){
+  
+  m_t[i] <- 1.5 + m_t[i - 1] + em[i]
+  
+}
+
+
+# optional n
+n_t <- vector()
+n_t <- 0
+
+n_rep <- 500
+en <- my_non_st_df$en
+
+for(i in 2:n_rep){
+  
+  n_t[i] <- -2 + n_t[i - 1] + en[i]
+  
+}
+
+# dplyr way of doing things
+my_seria <- 
+  my_non_st_df %>% 
+  mutate(m_t = 1.5 + lag(m, 1) + em,
+         n_t = -2 + lag(n, 1) + en) %>% 
+  select(m_t, n_t)
+
+my_seria$m_t %>% tsdisplay(., lag.max = 30)
+my_seria$n_t %>% tsdisplay(., lag.max = 30)
+
+```
+
+Optional: You are encouraged to generate m~t~ and n~t~ where the initial values of m~t~ and n~t~ are zero (see Module 3A Question 3.9 for an example of how to generate the series).
+
+#### QUESTION 3.36
+
+These two series, `m` and `n`, are stationary:
+
+Answer is **FALSE**, since they have a positive (`m`) and negative (`n`) trend
+
+### Nonstationary Data
+
+#### QUESTION 3.37
+
+Observing the correlogram for each series, at which lag does the ACF become statistically insignificant? Use a 5 percent level of significance to decide.
+
+Answer: They do not die out.
+
+#### QUESTION 3.38
+
+Estimate an AR(1) model for `m` and for `n`. Enter the corresponding estimated autoregressive coefficient (to four decimal places, without any rounding):
+
+```{r}
+
+model_m <-
+  Arima(my_seria$m_t, c(1, 0, 0))
+
+model_n <-
+  Arima(my_seria$n_t, c(1, 0, 0))
+
+summary(model_m)
+summary(model_n)
+```
+
+They are practically 1.
+
+#### QUESTION 3.39
+
+Run a regression of `m` on `n`, together with a constant term. Which of the following statements accurately represents the regression results? (Choose all that apply)
+
+```{r}
+
+my_lm <- lm(my_seria$n_t ~ my_seria$m_t)
+
+summary(my_lm)
+
+resid(my_lm) %>% tsdisplay()
+```
+
+My residuals appear to be white noise, so I could not get the right answer. Below is an explanation from the IMF staff. 
+
+**Explanation**: _The regression has very good fit (R2 of over 0.99), and the coefficient of n has a very large t-statistic, therefore suggesting a highly significant relationship between the two variables. However, note that the regression residuals appear to be nonstationary, with an ACF that decays very slowly. The Q-test of zero autocorrelation is overwhelmingly rejected at all lags up to 36. The strong association should therefore be described as spurious, since these two series by construction are actually unrelated (i.e., there is no relationship between them)._
+
+**However, from the discussion forum, one student correctly observed that**: _This question is not well written and does not reflect the lecture's message. The seemingly good fit and the high t-statistics are spurious. One cannot evaluate the residuals due to perfect separation. Thus, one cannot even assess the model fit and model coefficient. Whether there is a long-run relationship or not cannot be assessed either. If you cannot save residuals and see whether they are white noise or not, how can you decide m an n are cointegrated? Very badly written and misleading question._
+
+```{r}
+
+# linear regression with simulated values
+my_lm_optional_sim_values <- lm(n_t ~ m_t)
+
+summary(my_lm_optional_sim_values)
+
+resid(my_lm_optional_sim_values) %>% tsdisplay()
+
+```
+
+If I were to simulate `m` and `n` in the first place, I would have answered correctly. Residuals do not die out. 

@@ -1,0 +1,251 @@
+---
+output: 
+  html_document: 
+    highlight: textmate
+    theme: journal
+---
+
+# IMF Online Course: Macroeconomic forecasting
+## Module 3A: Statistical Properties of Time Series Data
+### Introduction to Time Series Data
+
+**Author**: Miha Trošt   
+**Date**: `r format(Sys.Date(), "%d-%m-%Y")`
+
+```{r global_options, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      eval = TRUE, 
+                      comment = "", 
+                      warning = FALSE,
+                      fig.width = 6, 
+                      fig.height = 6,
+                      fig.align='center',
+                      dpi = 100,
+                      bootstrap.thumbnail = FALSE)
+
+options(width = 100)
+
+```
+
+```{r libraries}
+# useful libraries
+library(plyr)
+library(dplyr)
+library(forecast)
+library(stringr)
+library(lubridate)
+library(tidyr)
+library(broom)
+
+```
+
+```{r getting_data}
+
+my_wd <- 
+  "C:/Users/Miha/Documents/GitHub/IMF_Macro_Forecasting_R/002_module_3a_Statistical_properties_of_time_series/"
+
+my_file <- 
+  str_c(my_wd, "Module3_data/module3_data_Identifying_ARMA.csv")
+
+m3_data <- read.csv(my_file, sep = "")
+```
+
+#### Question 3.8
+
+Open the EViews workfile M3_data.wf1 and click on the sheet “Identifying_ARMA”. The variable et represents a random shock variable. Provide the average and standard-deviation of et below (to three decimal places, without any rounding. For example, if the number is 2.535986, input 2.535).
+
+```{r visual_inspection, fig.height=4}
+
+# visual inspection
+par(las = 1)
+plot.ts(m3_data, col = "red")
+abline(h = mean(m3_data$et), col = "blue")
+
+```
+
+The `et` time series **mean** is `r mean(m3_data$et)` and its **standard deviation** is `r sd(m3_data$et)`. 
+
+#### Question 3.9
+
+Using et as the white noise disturbance, and assuming the initial value of y to be equal to zero generate a new random variable yar, which follows the following AR(1) process:
+
+``` yt  = 3.0 + 0.55 yt-1 + et; y0 = 0 ```
+
+Enter the value of the 5th observation of variable yar (to three decimal places, without any rounding):
+
+```{r sim_arima_q_3_09}
+
+# reproduction of Eviews simualtions AR(1)
+
+### question 3.9
+# yt  = 3.0 + 0.55 yt-1 + et; y0 = 0
+y_ar <- as.vector(1)
+
+# y_0 = 0
+y_ar[1] <- 0 
+
+# generate time series
+
+n <- 500
+for (i in 2:n) {
+
+    y_ar[i] <- 3 + m3_data$et[i] + 0.55 * y_ar[i - 1]
+
+}
+
+```
+
+The fifth value is `r y_ar[5]`. 
+
+#### Question 3.10
+
+Also using et as the white noise disturbance and again assuming that the initial value of y is equal to zero, generate the variable yma which follows the following MA(1) process:
+
+``` yt = -2.5 + et + 0.70 et-1 ```
+
+Enter the value of the 5th observation of variable yma (to three decimal places, without any rounding):
+
+```{r sim_arima_q_3_10}
+
+### question 3.10
+# yt  = -2.5 + et + 0.70 et-1
+
+y_ma <- as.vector(1)
+
+# y_0 = 0
+y_ma[1] <- 0 
+
+# generate time series
+
+n <- 500
+for (i in 2:n) {
+
+    y_ma[i] <- -2.5 + m3_data$et[i] + 0.7 * m3_data$et[i - 1]
+
+}
+```
+
+The fifth value is `r y_ma[5]`.
+
+#### Question 3.11
+
+Based on the patterns of ACF and PACF observed in the past lecture for an AR(1) process, which of the following statements is true?
+
+```{r acf_apcf}
+
+### question 3.11
+par(mfrow = c(2, 2))
+acf(y_ar); acf(y_ma); pacf(y_ar); pacf(y_ma)
+par(mfrow = c(1, 1))
+
+```
+
+The second answer is correct: 
+_ACF decays gradually, PACF drops abruptly after lag 1._
+
+#### Question 3.12
+
+Lastly, also using et as the white noise disturbance and assuming that the initial value of y is equal to zero, generate variable yarma which follows an ARMA(1,1) process:
+
+``` yt = 0.5 + 0.55 yt-1 + et + 0.70 et-1 ```
+
+```{r sim_arma}
+
+### question 3.12
+# yt = 0.5 + 0.55 yt-1 + et + 0.70 et-1
+
+y_arma <- as.vector(1)
+
+# y_0 = 0
+y_arma[1] <- 0 
+
+# generate time series
+
+n <- 500
+for (i in 2:n) {
+
+    y_arma[i] <- 
+      0.5 + 0.55 * y_arma[i - 1] + m3_data$et[i] + 0.7 * m3_data$et[i - 1]
+
+}
+
+```
+
+The fifth value is `r y_arma[5]`.
+
+#### Question 3.13
+
+Compute the ACF at lags 1-20 for the four series: et and Variables yar,yma and yarma.
+
+Enter the values (using 3 decimal places, without rounding) of the ACF at one lag for each series:
+
+```{r acf_pacf_all_lag_1}
+
+my_lag <- 1
+
+acf(m3_data$et, plot = FALSE)[my_lag]
+acf(y_ar, plot = FALSE)[my_lag]
+acf(y_ma, plot = FALSE)[my_lag]
+acf(y_arma, plot = FALSE)[my_lag]
+
+```
+
+#### Question 3.14
+
+For the theoretical process underlying Variable yar, what would be the ACF for lag 2 (to three decimal places, without any rounding)? It is 0.55 at lag one. For the lag two it should be the square of that number. Hence it would be `r 0.55 * 0.55`.
+
+#### Question 3.15
+
+Enter the values (using 3 decimal places, without any rounding) for the ACF at two lags for each series:
+
+```{r acf_pacf_all_lag_2}
+
+my_lag <- 2
+
+acf(m3_data$et, plot = FALSE)[my_lag]
+acf(y_ar, plot = FALSE)[my_lag]
+acf(y_ma, plot = FALSE)[my_lag]
+acf(y_arma, plot = FALSE)[my_lag]
+
+```
+
+#### Question 3.16
+
+Based on the definition of the partial autocorrelation (PAC) and the patterns of behavior shown in the previous video lecture, what should be the PAC at lags 1 and 2 for the theoretical process underlying Variable y~ar~?
+
+They should be 0.55 at lag 1 and 0 at lag 2.
+
+#### Question 3.17
+
+Use the regression object to estimate the PAC for variable yar for lag 1, then for lag 2.
+
+Enter the PAC for one lag :
+
+```{r lm_reggression_pacf_lag_1}
+
+my_lm <- lm(y_ar ~ lag(y_ar, 1)) %>% 
+  tidy
+
+lm(y_ar ~ lag(y_ar, 1)) %>% summary
+
+```
+
+PACF for lag 1 is `r my_lm[2, 2]`. It is statistically significant at 5% level. 
+
+#### Question 3.18
+
+Enter the PAC for two lags:
+
+```{r lm_reggression_pacf_lag_2}
+
+my_lm <- lm(y_ar ~ lag(y_ar, 1) + lag(y_ar, 2)) %>% 
+  tidy
+
+lm(y_ar ~ lag(y_ar, 1) + lag(y_ar, 2)) %>% summary
+
+```
+
+PACF for lag 2 is `r my_lm[2, 2]`. It is statistically significant at 5% level.
+

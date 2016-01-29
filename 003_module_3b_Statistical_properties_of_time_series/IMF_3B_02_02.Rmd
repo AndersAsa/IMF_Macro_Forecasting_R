@@ -1,0 +1,491 @@
+---
+output: 
+  html_document: 
+    highlight: textmate
+    theme: journal
+---
+
+# IMF Online Course: Macroeconomic forecasting
+## Module 3B: Statistical Properties of Time Series Data
+### Is Our Data Nonstationary?
+
+**Author**: Miha Trošt   
+**Date**: `r format(Sys.Date(), "%d-%m-%Y")`
+
+```{r global_options, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      eval = TRUE, 
+                      comment = "", 
+                      warning = FALSE,
+                      fig.width = 6, 
+                      fig.height = 6,
+                      fig.align='center',
+                      dpi = 100,
+                      bootstrap.thumbnail = FALSE)
+
+options(width = 100)
+
+```
+
+```{r}
+
+# useful libraries
+library(plyr)
+library(dplyr)
+library(forecast)
+library(stringr)
+library(lubridate)
+library(tidyr)
+library(broom)
+library(urca)
+library(strucchange)
+
+```
+
+```{r}
+
+my_wd <-
+  "C:/Users/Miha/Documents/GitHub/IMF_Macro_Forecasting_R/002_module_3a_Statistical_properties_of_time_series/Module3_data/"
+
+# m3_data <- 
+#   read.csv(str_c(my_wd, "module3_data_Identifying_ARMA.csv"), 
+#            sep = ",")
+
+my_df <-
+  read.csv(str_c(my_wd, "module3_data_PE_Ratios.csv"),
+           sep = ",",
+           stringsAsFactors = FALSE)
+# 
+# my_non_st_df <-
+#   read.csv(str_c(my_wd, "module3b_data_Simulated_Nonstationary.CSV"),
+#            sep = ",",
+#            stringsAsFactors = FALSE)
+
+my_reer <-
+  read.csv(str_c(my_wd, "module3_data_REER.csv"), stringsAsFactors = FALSE)
+
+```
+
+### Video lecture: A worked example using real data
+
+```{r}
+
+my_pe_df <-
+  my_df %>% 
+  select(date, pe_saf) %>%
+  filter(complete.cases(.))
+
+```
+
+### Visual inspection of data
+
+#### Time series plot
+
+```{r}
+
+tsdisplay(my_pe_df$pe_saf, las = 1, col = "blue")
+
+```
+
+#### Testing for stationarity
+
+```{r}
+# my time series
+my_ts <- my_pe_df$pe_saf
+
+# defining max lag
+my_lags <- 5
+
+# stationarity test storage
+stationarity_tests <- list()
+
+# ADF unit root test
+
+stationarity_tests$adf_none <- 
+  ur.df(my_ts, type = "none", 
+        lags = my_lags, selectlags = "AIC") %>% 
+  summary
+
+stationarity_tests$adf_drift <- 
+  ur.df(my_ts, type = "drift", 
+        lags = my_lags, selectlags = "AIC") %>% 
+  summary
+
+stationarity_tests$adf_trend <- 
+  ur.df(my_ts, type = "trend",
+        lags = my_lags, selectlags = "AIC") %>% 
+  summary
+
+# Phillips - Perron unit root test
+
+stationarity_tests$pp_constant <- 
+  ur.pp(my_ts, 
+        type = "Z-tau", model = "constant", lags = "long") %>% 
+  summary
+
+stationarity_tests$pp_trend <- 
+  ur.pp(my_ts, 
+        type = "Z-tau", model = "trend", lags = "long") %>% 
+  summary
+
+# KPSS stationarity test
+
+stationarity_tests$kpss_mu <- 
+  ur.kpss(my_ts, type = "mu", lags = "long") %>% 
+  summary
+
+stationarity_tests$kpss_tau <-   
+  ur.kpss(my_ts, type = "tau", lags = "long") %>% 
+  summary
+
+# print the results of stationarity testing
+stationarity_tests
+
+```
+
+According to the visual inspection and formal stationarity testing the **South African time series appears to be stationary**.
+
+### Real effective exchange rates
+
+```{r}
+
+reer_mys <- 
+  my_reer %>% 
+  select(dateid01, reer_mys) %>% 
+  filter(complete.cases(.))
+
+tsdisplay(reer_mys$reer_mys)
+tsdisplay(reer_mys$reer_mys %>% diff(.))
+
+```
+
+Concluding on the basis on visual inspection of Malaysian time series (real effective exchange rate) it appears that it is nonstationary. However, it appears to be stationary in the second half of the time period (after the Asian chrisis). 
+
+It appears that in first differences the Malaysian real effective exchange rate is stationary.
+
+### Comprehensive Tests and Specification
+
+Open the EViews workfile `Module3B_data.wf1` , pagefile `PE_ratios`. Also open the Excel file `M3B_Table_unit_root_tests.xlsx`, which you can fill in to summarize your results.
+
+Open the series `pe_aus`, the price-earnings ratio for Australia. For the sample period **2000M4 - 2015M2**, conduct the three unit root/stationarity tests covered in the lecture (ADF, PP, and KPSS) for all specifications (Intercept, Intercept and Trend, and None), using the AIC to determine the maximum lag included. 
+
+_Hint: As in previous questions adapt the command `pe_aus.uroot(adf, exog = trend, lagmethod = aic)` where we added the option `lagmethod = aic` to make sure EViews uses the Aikeke criterion instead of the Schwarz criterion to determine the number of lags in the test. Also, make sure you change the sample before running the test._
+
+Enter the p-values of your results in the corresponding yellow shaded area in the Excel file. Note that the p-values for the KPSS test should be included as ranges, such `p > 0.10`, `0.01 < p < 0.05`, etc.
+
+#### Question 3.44 
+
+Which of the specifications appears to be most appropriate? 
+
+_Hint: Check the significance of the intercept and the trend terms in the regressions associated with the tests._
+
+```{r}
+
+my_pe_df <-
+  my_df %>% 
+  select(date, pe_aus) %>%
+  filter(complete.cases(.))
+
+my_pe_names <- 
+  my_pe_df %>% 
+  names
+
+# my time series
+my_ts <- my_pe_df$pe_aus
+
+```
+
+### Visual inspection of data
+
+#### Time series plot of `r my_pe_names[2]` 
+
+```{r}
+
+tsdisplay(my_ts, las = 1, col = "blue")
+
+```
+
+#### Testing for stationarity of `r my_pe_names[2]`
+
+```{r}
+
+
+# defining max lag
+my_lags <- 5
+
+# stationarity test storage
+stationarity_tests <- list()
+
+# ADF unit root test
+
+stationarity_tests$adf_none <- 
+  ur.df(my_ts, type = "none", 
+        lags = my_lags, selectlags = "AIC") %>% 
+  summary
+
+stationarity_tests$adf_drift <- 
+  ur.df(my_ts, type = "drift", 
+        lags = my_lags, selectlags = "AIC") %>% 
+  summary
+
+stationarity_tests$adf_trend <- 
+  ur.df(my_ts, type = "trend",
+        lags = my_lags, selectlags = "AIC") %>% 
+  summary
+
+# Phillips - Perron unit root test
+
+stationarity_tests$pp_constant <- 
+  ur.pp(my_ts, 
+        type = "Z-tau", model = "constant", lags = "long") %>% 
+  summary
+
+stationarity_tests$pp_trend <- 
+  ur.pp(my_ts, 
+        type = "Z-tau", model = "trend", lags = "long") %>% 
+  summary
+
+# KPSS stationarity test
+
+stationarity_tests$kpss_mu <- 
+  ur.kpss(my_ts, type = "mu", lags = "long") %>% 
+  summary
+
+stationarity_tests$kpss_tau <-   
+  ur.kpss(my_ts, type = "tau", lags = "long") %>% 
+  summary
+
+# print the results of stationarity testing
+stationarity_tests
+
+```
+
+Answer: Intercept only.
+
+#### Question 3.45
+
+What conclusion can you draw about `pe_aus` for the **2000:04 - 2015:02** period (Use the command `smpl 2000M4 2015M2`)?
+
+_Hint: Based on the specification you selected in Q3.44, check the table summarizing the p-values of the different tests (first row of M3B_Table_unit_root_tests.xlsx) in order to reach a conclusion._
+
+Answer: It is stationary
+
+#### Question 3.46 
+
+However, there may be a structural break in the series that is distorting the tests. Based on the graph of `pe_aus`, when is the structural break likely to occur?
+
+_Note: See Module 7 for a more detailed treatment of structural breaks._
+
+```{r}
+
+# Estimate of structural break = 2 times the mean of a time series
+# my personal trashold choice
+
+my_pe_df %>% 
+  mutate(str_break = ifelse(pe_aus > 2 * mean(pe_aus), "true", "false")) %>%
+  filter(str_break == "true")
+
+```
+
+Answer: The structural break is likely to have occured in the period: `Late 2009 - Mid 2010`.
+
+### Pre-Crisis Tests
+
+Repeat the unit root/stationarity tests, for the pre-Global Crisis period (from **2000:04 to 2009:05**), and enter the p-values you obtain in the corresponding yellow-shaded cells in the Excel file.
+
+#### Question 3.47
+
+Which of the specifications appears to be most appropriate?
+
+_Hint: See Q3.44_
+
+```{r}
+
+my_bc_df <- 
+  my_pe_df %>%
+  filter(date >= "2000-04-15", date <= "2009-05-31")
+
+my_ts <- my_bc_df$pe_aus
+
+tsdisplay(my_ts, las = 1, col = "blue")
+
+```
+
+Answer: Intercept and trend.
+
+#### Question 3.48
+
+What conclusion can you draw about `pe_aus` in the pre-Global Crisis period?
+
+Hint: See Q3.45
+
+Answer: There are conflicting results. 
+
+_**Explanation from IMF Staff**: Both the unit root tests fail to reject the null hypothesis of a unit root for the preferred specification (including both intercept and trend). However, the KPSS fails to reject the null hypothesis of stationarity, although the p-value is close to 0.10. If one had to choose, then it would appear that nonstationarity might be slightly more likely. Technically speaking, however, there are conflicting results._
+
+**Note to myself**: I did not bother to look at stationarity tests. However, based on the visual inspection of time series and its correlogram, I would say that even in this subsample there appears to be a structural break that lowered the mean somewhere in the middle of the period. If corrected for the break, it would be stationary.
+
+### Breakpoint Unit Root Tests
+
+EViews allows one to test for unit roots accounting for possible structural breaks in the data, by using the `Breakpoint Unit Root Test` option in the View Tab with the `pe_aus` series open. A dialogue box appears, with several options:
+
+* First, note that you are testing for the level of the series. Since you found that there was a significant downward trend in the pre-crisis data, choose `Trend and Intercept` as the Basic Specification, and choose `Intercept` for the Breaking Specification. That is, you are assuming that the series has a trend and intercept, but only the intercept shifts with the break.
+
+* Choose `Akaike criterion` to choose the maximum lag length, and choose `Additive Outlier`, which treats the effects of the break as being immediate.
+
+* Choose `Dickey-Fuller min-t` as the criterion for finding the breakpoint. That is, EViews will look for a breakpoint that maximizes the probability that the ADF null hypothesis will be rejected, or equivalently, that the series will be stationary once the break is taken into account.
+
+* Lastly, please ensure that these tests are conducted over **2000:04 - 2015:02**, that is, the full sample period.
+
+#### Question 3.49 
+
+Enter the breakpoint found by EViews (using the "2000M3" date format to provide your answer): 
+
+```{r}
+
+# detecting the breakpoint using "strucchange" package
+
+my_zoo_df <- 
+  my_pe_df %>% 
+  mutate(date = as.Date(ymd(date)))
+  
+my_zoo_ts <- 
+  zoo(my_zoo_df$pe_aus, my_zoo_df$date)
+
+fs.my_zoo_ts <- Fstats(my_zoo_ts ~ 1)
+
+my_breakpoint <-
+  fs.my_zoo_ts$breakpoint
+
+```
+
+Answer: using Eviews ADF with Break test: **2009M04**
+
+My breakpoint using package `strucchange`: **`r time(my_zoo_ts)[my_breakpoint]`**
+_Note: There are many packages that deal with breakpoint detection in R._
+
+#### Question 3.50 
+
+This test implies that `pe_aus` is:
+
+Answer: Stationary
+
+#### Question 3.51
+
+Repeat the breakpoint test, now allowing for a break not only in the intercept but in the trend as well. This is done my maintaining all of the options from the previous exercise except one: now choose `Trend and Intercept` for the Breaking Specification.
+
+Enter the breakpoint found by EViews (using the `2000M3` date format to provide your answer): 
+
+Answer: **2009M02**
+
+#### Question 3.52
+
+This test implies that `pe_aus` is:
+
+Answer: **Nonstationary**
+
+#### Question 3.53
+
+Recall that in question 3.51 we allowed for a change in the trend as well as in the intercept. Do the results support this change in trend?
+
+_Hint: Check the regression associated with the `Breakpoint Unit Root Test` where `pe_aus` is the dependent variable. Trendbreak represents the break in the trend while Incptbreak represents the break in the intercept._
+
+Answer: Yes.
+
+### Post-Crisis Tests
+
+Lastly, please return to the three standard (i.e., non break point) unit tests that we started with in this question set. Calculate the three unit root/stationarity tests for just the post-Global Crisis period (i.e., **2010:12 – 2015:02**).
+
+```{r}
+
+my_pe_df <-
+  my_df %>% 
+  select(date, pe_aus) %>%
+  filter(complete.cases(.),
+         date >= "2010-12-15",
+         date < "2015-03-15")
+
+head(my_pe_df)
+
+tail(my_pe_df)
+
+my_ts <- my_pe_df$pe_aus
+
+my_lags <- 5
+stationarity_tests <- list()
+
+# ADF unit root test
+
+stationarity_tests$adf_drift <- 
+  ur.df(my_ts, type = "drift", 
+        lags = my_lags, selectlags = "AIC") %>% 
+  summary
+
+stationarity_tests$adf_trend <- 
+  ur.df(my_ts, type = "trend",
+        lags = my_lags, selectlags = "AIC") %>% 
+  summary
+
+# Phillips - Perron unit root test
+
+stationarity_tests$pp_constant <- 
+  ur.pp(my_ts, 
+        type = "Z-tau", model = "constant", lags = "long") %>% 
+  summary
+
+stationarity_tests$pp_trend <- 
+  ur.pp(my_ts, 
+        type = "Z-tau", model = "trend", lags = "long") %>% 
+  summary
+
+# KPSS stationarity test
+
+stationarity_tests$kpss_mu <- 
+  ur.kpss(my_ts, type = "mu", lags = "long") %>% 
+  summary
+
+stationarity_tests$kpss_tau <-   
+  ur.kpss(my_ts, type = "tau", lags = "long") %>% 
+  summary
+
+```
+
+Enter the resulting p-values in the corresponding yellow-shaded cells in the Excel file.
+
+#### Question 3.54
+
+Which of the specifications is most appropriate?
+
+```{r}
+tsdisplay(my_ts)
+```
+
+
+```{r}
+
+stationarity_tests
+
+```
+
+Answer: Intercept and trend.
+
+_Explanation from IMF Staff: Once again, the regression results imply a highly significant trend term. However, note that the post-crisis trend is positive, compared to a downward trend in the pre-crisis period. This is additional evidence that the trend relationship changed._
+
+#### QUESTION 3.55
+
+This test implies that in the post-crisis period `pe_aus` is:
+
+Answer: Cannot be determined.
+
+_Explanation from IMF Staff: Based on the results for tests that include a trend as well as an intercept, the results are again conflicting; the two unit root tests overwhelmingly reject the null hypothesis of a unit root, but the KPSS tests rejects stationarity using less than a 10 percent level of significance._
+
+_Bottom line: this exercise illustrates the challenges that can arise in real world data with limited observations. While the entire sample spanned 15 years of monthly data, we also observed a major break 10 years in. To complicate matters, the break did not seem to be a one-time level shift but rather two structural breaks, the first sending the P-E ratio from the 15-20 range to 65-75 for about one year and then down again to the 15-20 range. Our best guess would be that `pe_aus` is nonstationary, as this is consistent with our results for preferred specifications in the pre-crisis sample and the breakpoint unit root test. As for the post-crisis sample, we must bear in mind that there are only 5 years of data, and the unit root tests gave results that conflicted with those of the KPSS test._
+
+**However, according to my calculations, I cannot reject unit root with ADF and PP, and I cannot reject stationarity with KPSS test (with intercept) at the 5 % level for the post chrisis period. The explanation should at least be the other way around.**
+
+**Updated explanation from IMF Staff**: _Based on the results for tests that include a trend as well as an intercept, the results are again conflicting; the two unit root tests overwhelmingly fail to reject the null hypothesis of a unit root, but the KPSS tests rejects stationarity using less than a 10 percent level of significance._
+
+
+

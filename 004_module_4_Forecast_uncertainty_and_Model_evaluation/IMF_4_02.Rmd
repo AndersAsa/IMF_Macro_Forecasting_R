@@ -1,0 +1,66 @@
+---
+output: 
+  html_document: 
+    highlight: textmate
+    theme: journal
+---
+
+# IMF Online Course: Macroeconomic forecasting
+## Module 4: Forecast Uncertainty and Model Evaluation
+
+**Author**: Miha Trošt   
+**Date**: `r format(Sys.Date(), "%d-%m-%Y")`
+
+```{r global_options, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      eval = TRUE, 
+                      comment = "", 
+                      warning = FALSE,
+                      fig.width = 6, 
+                      fig.height = 6,
+                      fig.align='center',
+                      dpi = 100,
+                      bootstrap.thumbnail = FALSE)
+
+options(width = 100)
+
+```
+
+```{r}
+
+# useful libraries
+library(plyr)
+library(dplyr)
+library(forecast)
+library(stringr)
+library(lubridate)
+library(tidyr)
+library(broom)
+library(xts)
+
+```
+
+### Introduction to Forecasting Strategies
+
+#### QUESTION 4.37
+
+True or False: EViews statistics are calculated by averaging forecast errors over a certain horizon. If, according to EViews and for a given horizon, model A has a lower RMSE than model B, model A is preferred to model B.
+
+Answer: False
+
+_Explanation from Imf Staff: Model A may perform well for short-run forecasts but terribly for long-run ones. Model B can perform very well for long-run forecasts, but poorly for short-term ones. One way to distinguish between competing models is to compute the RMSE for every forecast horizon._
+
+#### QUESTION 4.38  
+
+True or False: Either the rolling or expanding window strategy can be used to evaluate forecast performance for a given horizon.
+
+Answer: True
+
+#### QUESTION 4.39  
+
+Fill-in the following statement by choosing from the drop down box.
+
+The `rolling` window strategy can help the forecaster deal with structural breaks.
+

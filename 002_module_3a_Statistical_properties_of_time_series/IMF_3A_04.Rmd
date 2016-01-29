@@ -1,0 +1,253 @@
+---
+output: 
+  html_document: 
+    highlight: textmate
+    theme: journal
+---
+
+# IMF Online Course: Macroeconomic forecasting
+## Module 3A: Statistical Properties of Time Series Data
+### Estimation with Stationary Time Series and Model Selection
+
+**Author**: Miha Trošt   
+**Date**: `r format(Sys.Date(), "%d-%m-%Y")`
+
+```{r global_options, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      eval = TRUE, 
+                      comment = "", 
+                      warning = FALSE,
+                      fig.width = 6, 
+                      fig.height = 6,
+                      fig.align='center',
+                      dpi = 100,
+                      bootstrap.thumbnail = FALSE)
+
+options(width = 100)
+
+```
+
+```{r}
+
+# useful libraries
+library(plyr)
+library(dplyr)
+library(forecast)
+library(stringr)
+library(lubridate)
+library(tidyr)
+library(broom)
+
+```
+
+```{r}
+
+my_wd <- 
+  "C:/Users/Miha/Documents/GitHub/IMF_Macro_Forecasting_R/002_module_3a_Statistical_properties_of_time_series/Module3_data/"
+
+# m3_data <- 
+#   read.csv(str_c(my_wd, "module3_data_Identifying_ARMA.csv"), 
+#            sep = ",")
+
+my_df <- 
+  read.csv(str_c(my_wd, "module3_data_PE_Ratios.csv"), 
+           sep = ",",
+           stringsAsFactors = FALSE)
+
+```
+
+### Working with World Data
+
+The exemple below is from video tutorial. Data is for South Africa:
+
+```{r}
+
+my_pe <- 
+  my_df %>% 
+  select(date, pe_saf) %>% 
+  filter(complete.cases(.)) %>% 
+  mutate(date = as.Date(date))
+
+# my time series
+my_ts <- my_pe$pe_saf
+
+# correlogram
+tsdisplay(my_ts)
+
+```
+
+ACF and PACF suggest an AR(4) or AR(6) model. 
+
+```{r ar_4_6}
+
+# ar1
+model_1 <- 
+  Arima(my_ts, c(4, 0, 0))
+
+tsdisplay(resid(model_1))
+
+# ar6
+model_2 <-
+  Arima(my_ts, c(6, 0, 0))
+
+tsdisplay(resid(model_2))
+
+# arma 6, 1
+model_3 <-
+  Arima(my_ts, c(6, 0, 1))
+
+tsdisplay(resid(model_3))
+
+```
+
+So far based on AIC the AR(4) model is preffered.
+
+### Working with Real World Data
+
+Open ```PE_ratios``` and work with time series ```pe_ind``` (the stock market price-earnings ratio for India).
+
+```{r ts_pe_ind}
+
+my_pe <- 
+  my_df %>% 
+  select(date, pe_ind) %>% 
+  filter(complete.cases(.)) %>% 
+  mutate(date = as.Date(date))
+
+# my time series
+my_ts <- my_pe$pe_ind
+
+# correlogram
+tsdisplay(my_ts)
+
+```
+
+#### QUESTION 3.32  
+
+After viewing the ACF and PACF, which of the following statistical processes appears to be more likely? Select only one option.
+
+The more likely is the AR statistical process.
+
+### Automatic ARIMA Forecasting for Indian Price-to-Earnings
+
+With series pe_ind (```my_ts```) run ```Automatic ARIMA Forecasting```. 
+
+Specification:
+
+* Transformation: None
+* Max differencing: 0
+* Max AR and Max MA: 6
+* Max SAR and SMA: 0
+
+Options:
+
+* Model Selection—Akaike Information Criterion
+* Eviews: Check the boxes for ARMA Criteria Table, ARMA Criteria Graph, Equation Output Table.
+
+#### QUESTION 3.33
+
+Which model was chosen?
+
+```{r auto.arima_pe_ind}
+
+model_aic <-
+  auto.arima(my_ts, # my time series 
+           stationary = TRUE, # restrict search to stationary models
+           d = 0, # differences
+           D = 0, # seasonal differences
+           max.p = 6, # max AR terms
+           max.q = 6, # max MA terms
+           max.P = 0, # max SAR terms
+           max.Q = 0, # max SMA terms
+           trace = TRUE, # show models as estimated
+           stepwise = FALSE) 
+
+model_bic <-
+  auto.arima(my_ts, # my time series 
+           stationary = TRUE, # restrict search to stationary models
+           d = 0, # differences
+           D = 0, # seasonal differences
+           max.p = 6, # max AR terms
+           max.q = 6, # max MA terms
+           max.P = 0, # max SAR terms
+           max.Q = 0, # max SMA terms
+           trace = TRUE, # show models as estimated
+           stepwise = FALSE,
+           ic = "bic") 
+
+
+```
+
+According to AIC selection criterion the higher order ARMA model was selected.
+
+```{r}
+model_aic
+```
+
+#### QUESTION 3.34
+
+Which model would be chosen on the basis of the the (Schwarz Info. Criteria) SIC?
+
+_Hint: Run the same Automatic ARIMA forecasting proc and change the Model selection criteria (under options) from Akaike Info. Criteria to Schwarz Info. Criteria while keeping the other options as in Q3.33._
+
+According to BIC selection criterion the AR(1) model was selected.
+
+```{r}
+model_bic
+```
+
+### The Best Model?
+
+In the assessments for Session 5, we suggested that a model with an AR(1) and a single MA term at lag 8 might outperform the three models we had observed. Run this model, which we will call Model 4 (note that the Automatic ARIMA Modeling would not consider such a model, as it would include all lags up to lag 8 not just the 8th lag and no other MA term). The results for the previous models are summarized below:
+
+```{r previous_models}
+
+# Model 1
+model_1 <- 
+  Arima(my_ts, order = c(1, 0, 0)) 
+
+# Model 2
+my_ar_terms <- c(NA, rep(0, 6), NA)
+my_ma_terms <- c(rep(0, 7), NA)
+my_intercept <- NA
+
+my_terms_mod_2 <- 
+  c(my_ar_terms, my_intercept)
+
+model_2 <- 
+  Arima(my_ts, order = c(8, 0, 0), fixed = my_terms_mod_2)
+
+# Model 3 
+my_terms_mod_3 <- 
+  c(my_ar_terms, my_ma_terms, my_intercept)
+
+model_3 <- 
+  Arima(my_ts, order = c(8, 0, 8), fixed = my_terms_mod_3) 
+
+# Model 4 
+my_terms_mod_4 <- 
+  c(my_ar_terms[1], my_ma_terms, my_intercept)
+
+model_4 <- 
+  Arima(my_ts, order = c(1, 0, 8), fixed = my_terms_mod_4) 
+
+my_models <- list(model_1, model_2, model_3, model_4)
+```
+
+#### QUESTION 3.35
+
+Could Model 4 be considered the “best”?
+
+```{r}
+my_mod_df <-
+  sapply(my_models, glance) %>% 
+  as.data.frame
+
+names(my_mod_df) <- paste0("model_", 1:4)
+
+my_mod_df
+```
+
+Yes, according to AIC and BIC info criterion the best model is the last one.

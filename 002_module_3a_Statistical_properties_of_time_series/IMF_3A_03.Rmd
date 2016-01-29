@@ -1,0 +1,211 @@
+---
+output: 
+  html_document: 
+    highlight: textmate
+    theme: journal
+---
+
+# IMF Online Course: Macroeconomic forecasting
+## Module 3A: Statistical Properties of Time Series Data
+### Estimation with Stationary Time Series and Model Selection
+
+**Author**: Miha Trošt   
+**Date**: `r format(Sys.Date(), "%d-%m-%Y")`
+
+```{r global_options, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      eval = TRUE, 
+                      comment = "", 
+                      warning = FALSE,
+                      fig.width = 6, 
+                      fig.height = 6,
+                      fig.align='center',
+                      dpi = 100,
+                      bootstrap.thumbnail = FALSE)
+
+options(width = 100)
+
+```
+
+```{r}
+
+# useful libraries
+library(plyr)
+library(dplyr)
+library(forecast)
+library(stringr)
+library(lubridate)
+library(tidyr)
+library(broom)
+
+```
+
+```{r}
+
+my_wd <- 
+  "C:/Users/Miha/Documents/GitHub/IMF_Macro_Forecasting_R/002_module_3a_Statistical_properties_of_time_series/Module3_data/"
+
+m3_data <- 
+  read.csv(str_c(my_wd, "module3_data_Identifying_ARMA.csv"), 
+           sep = ",")
+
+# my_df <- 
+#   read.csv(str_c(my_wd, "module3_data_PE_Ratios.csv"), 
+#            sep = ",",
+#            stringsAsFactors = FALSE)
+
+```
+
+### Working with Simulated Data
+
+#### QUESTION 3.25
+
+Note that the series y was simulated following the model (where the error term is a white noise):
+
+y~t~ = 1.2 * y~t-1~ - 0.5 * y~t-2~ + e~t~
+
+```{r arima_sim}
+y <- vector()
+y <- rep(0, 2)
+
+n <- 500
+e <- rnorm(n)
+
+for(i in 3:n){
+  
+  y[i] <- 1.2 * y[i - 1] - 0.5 * y[i - 2] + m3_data$et[i]
+  
+}
+```
+
+Plot the series. 
+
+```{r plot_y}
+
+plot.ts(y, col = "blue", las = 1)
+abline(h = 0)
+
+```
+
+Based on the equation above, series y is simulated as what of process?
+
+The series y is simulated as AR(2) process.
+
+### Estimating Different Models
+
+#### QUESTION 3.26  
+
+Enter the SBC (Schwarz criterion) for each model (to three decimal places, without any rounding):
+
+```{r model_1_2}
+
+model_1 <-
+  Arima(y, order = c(1, 0, 0), method = "ML")
+
+model_2 <- 
+  Arima(y, order = c(2, 0, 0), method = "ML")
+```
+
+**AR(1)**: 
+
+The BIC for model 1 (calculated in R) is `r model_1$bic`. 
+
+**AR(2)**:
+
+The BIC for model 2 (calculated in R) is `r model_2$bic`.
+
+The second model is preffered. However, the AIC and BIC values differ between R and Eviews, and my calculations do not get you correct answer on this question. The calculations get you very close if you do: ```log(BIC) / 2```. Furthermore, I did not pay too much attention to sample size.
+
+#### QUESTION 3.27
+
+Enter the p-value (to three decimal places, without any rounding) for the lag 12 Q-test on the regression residuals for each model:
+
+```{r Q_statistic}
+box_m1 <-
+  Box.test(residuals(model_1), lag = 12, fitdf = 0)
+
+box_m2 <-
+  Box.test(residuals(model_2), lag = 12, fitdf = 0)
+
+```
+
+**AR(1)**: 
+
+The p-value for model 1 (calculated in R) is `r box_m1$p.value`. 
+
+**AR(2)**:
+
+The BIC for model 2 (calculated in R) is `r box_m2$p.value`.
+
+#### QUESTION 3.28
+
+If the regression residuals are white noise and using a 10 percent level of significance, to conclude that there is no auto-correlation at a certain lag length the p-value should be:
+
+Greater than 0.1.
+
+#### QUESTION 3.29  
+
+Do the regression diagnostics favor the true (i.e., AR(2)) model for y? In other words, does the true model clearly perform better than the other?
+
+Yes.
+
+### Automatic ARIMA Forecasting
+
+With series y run ```Automatic ARIMA Forecasting```. 
+
+Specification:
+
+* Transformation: None
+* Max differencing: 0
+* Max AR and Max MA: 6
+* Max SAR and SMA: 0
+
+Options:
+
+* Model Selection—Akaike Information Criterion
+* Eviews: Check the boxes for ARMA Criteria Table, ARMA Criteria Graph, Equation Output Table.
+
+#### QUESTION 3.30
+
+Which model was chosen as the best?
+
+```{r auto.arima}
+
+auto.arima(y, # my time series 
+           stationary = TRUE, # restrict search to stationary models
+           d = 0, # differences
+           D = 0, # seasonal differences
+           max.p = 6, # max AR terms
+           max.q = 6, # max MA terms
+           max.P = 0, # max SAR terms
+           max.Q = 0, # max SMA terms
+           trace = TRUE, # show models as estimated
+           stepwise = FALSE) 
+
+```
+
+**None of the following**: AR(1), AR(2), ARMA(1, 1).
+
+#### QUESTION 3.31
+
+Without re-running the model, would the use of a different criterion have resulted in a different model being chosen as the best?
+
+```{r auto.arima_bic}
+
+auto.arima(y, # my time series 
+           stationary = TRUE, # restrict search to stationary models
+           d = 0, # differences
+           D = 0, # seasonal differences
+           max.p = 6, # max AR terms
+           max.q = 6, # max MA terms
+           max.P = 0, # max SAR terms
+           max.Q = 0, # max SMA terms
+           trace = TRUE, # show models as estimated
+           stepwise = FALSE,
+           ic = "bic") 
+
+```
+
+The true model would have been selected.

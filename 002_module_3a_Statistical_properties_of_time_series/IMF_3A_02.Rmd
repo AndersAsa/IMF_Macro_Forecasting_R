@@ -1,0 +1,176 @@
+
+---
+output: 
+  html_document: 
+    highlight: textmate
+    theme: journal
+---
+
+# IMF Online Course: Macroeconomic forecasting
+## Module 3A: Statistical Properties of Time Series Data
+### Identification of Stationary Processes
+
+**Author**: Miha Trošt   
+**Date**: `r format(Sys.Date(), "%d-%m-%Y")`
+
+```{r global_options, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      eval = TRUE, 
+                      comment = "", 
+                      warning = FALSE,
+                      fig.width = 6, 
+                      fig.height = 6,
+                      fig.align='center',
+                      dpi = 100,
+                      bootstrap.thumbnail = FALSE)
+
+options(width = 100)
+
+```
+
+```{r}
+
+# useful libraries
+library(plyr)
+library(dplyr)
+library(forecast)
+library(stringr)
+library(lubridate)
+library(tidyr)
+library(broom)
+
+```
+
+```{r}
+
+my_wd <- 
+  "C:/Users/Miha/Documents/GitHub/IMF_Macro_Forecasting_R/002_module_3a_Statistical_properties_of_time_series/Module3_data/"
+
+m3_data <- 
+  read.csv(str_c(my_wd, "module3_data_Identifying_ARMA.csv"), 
+           sep = ",")
+
+my_df <- 
+  read.csv(str_c(my_wd, "module3_data_PE_Ratios.csv"), 
+           sep = ",",
+           stringsAsFactors = FALSE)
+
+```
+
+#### QUESTION 3.19
+
+Suppose you have estimated three MA models for a given series Z, and have obtained the following results:
+
+MA(1): R^2^ = 0.852
+
+MA(2): R^2^ = 0.854
+
+MA(3): R^2^ = 0.855
+
+Indicate which of the following could explain why the MA(3) is not the best model for Z (select all that apply):
+
+1. Although the MA(3) has the best fit, it does not have the lowest AIC.
+2. Not all of the three MA(3) coefficients are statistically significant.
+
+### Comparing Models
+
+Consider the following three models that have been estimated for pe_ind (the stock market price-earnings ratio in India).
+
+**Model 1** is an AR(1); 
+**Model 2** has AR terms at lags 1 and 8 only;
+**Model 3** has AR terms at lags 1 and 8, and an MA term at lag 8.
+
+For each model, the regression results and the ACF, PACF and Q-Statistics for the residuals are estimated:
+
+```{r estimation_arima}
+
+my_pe_ind <- 
+  my_df %>% 
+  select(date, pe_ind) %>% 
+  filter(complete.cases(.)) %>% 
+  mutate(date = as.Date(date))
+
+# my time series
+my_ts <- my_pe_ind$pe_ind
+
+# Model 1
+model_1 <- 
+  Arima(my_ts, order = c(1, 0, 0)) 
+
+# Model 2
+my_ar_terms <- c(NA, rep(0, 6), NA)
+my_ma_terms <- c(rep(0, 7), NA)
+my_intercept <- NA
+
+my_terms_mod_2 <- 
+  c(my_ar_terms, my_intercept)
+
+model_2 <- 
+  Arima(my_ts, order = c(8, 0, 0), fixed = my_terms_mod_2)
+
+# Model 3 
+my_terms_mod_3 <- 
+  c(my_ar_terms, my_ma_terms, my_intercept)
+
+model_3 <- 
+  Arima(my_ts, order = c(8, 0, 8), fixed = my_terms_mod_3) 
+
+```
+
+#### QUESTION 3.20
+
+Which model has the lowest Sum of Squared Residuals (SSR)?
+
+```{r ssr}
+min_ssr <-
+  which.min(c(sum(resid(model_1) ^ 2), 
+              sum(resid(model_2) ^ 2), 
+              sum(resid(model_3) ^ 2)))
+```
+
+The lowest SSR has the model number `r min_ssr`.
+
+#### QUESTION 3.21
+
+Which model has the lowest Akaike Information Criterion (AIC)?
+
+```{r aic}
+min_aic <-
+  which.min(c(AIC(model_1), AIC(model_2), AIC(model_3)))
+```
+
+The lowest SSR has the model number `r min_aic`.
+
+#### QUESTION 3.22
+
+Which model has the lowest Schwarz's Bayesian criterion (SBC or BIC)?
+
+```{r bic}
+min_bic <-
+  which.min(c(BIC(model_1), BIC(model_2), BIC(model_3)))
+```
+
+The lowest SSR has the model number `r min_bic`.
+
+#### QUESTION 3.23
+
+With which model or models can you be reasonably confident that the residuals are not serially correlated? 
+
+```{r acf_pacf}
+
+tsdisplay(resid(model_1))
+tsdisplay(resid(model_2))
+tsdisplay(resid(model_3))
+
+```
+
+Correct answer is for model_2 and model_3.
+
+#### QUESTION 3.24
+
+Based on your reading of the results, what will you do now to determine the best model for pe_ind?
+
+Run one more model that might outperform all three models.
+
